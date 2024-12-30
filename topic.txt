@@ -1,0 +1,9 @@
+
+kafka-topics.sh --bootstrap-server localhost:9092 --create --topic msg_topic   --partitions 3 --replication-factor 2
+kafka-configs.sh --bootstrap-server localhost:9092 --alter --entity-type topics --entity-name msg_topic --add-config min.insync.replicas=2
+
+Topic: msg_topic	TopicId: cVT3qbvcSIq0FQByHDgLSg	PartitionCount: 3	ReplicationFactor: 2	Configs: min.insync.replicas=2
+	Topic: msg_topic	Partition: 0	Leader: 2	Replicas: 2,0	Isr: 2,0
+	Topic: msg_topic	Partition: 1	Leader: 0	Replicas: 0,1	Isr: 0,1
+	Topic: msg_topic	Partition: 2	Leader: 1	Replicas: 1,2	Isr: 1,2
+$ $ 
