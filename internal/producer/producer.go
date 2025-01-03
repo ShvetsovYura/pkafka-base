@@ -3,14 +3,17 @@ package producer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
+	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/ShvetsovYura/pkafka_base/internal/logger"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 	"github.com/google/uuid"
 )
+
+const createMessageInterval time.Duration = 1 * time.Second
 
 type Msg struct {
 	Uuid  string `json:"uuid"`
@@ -25,6 +28,7 @@ type KProducer struct {
 }
 
 func NewKafkaProducer(topic string, servers string) *KProducer {
+	logger.Init()
 	// Создание продюсера
 	p, err := kafka.NewProducer(&kafka.ConfigMap{
 		"bootstrap.servers":        servers,
@@ -35,7 +39,7 @@ func NewKafkaProducer(topic string, servers string) *KProducer {
 		log.Fatalf("Невозможно создать продюсера: %s\n", err)
 	}
 	partition := kafka.TopicPartition{Topic: &topic, Partition: kafka.PartitionAny}
-	log.Printf("Продюсер создан %v\n", p)
+	logger.Log.Info("Продюсер создан", slog.Any("producer", p))
 
 	return &KProducer{
 		topic:     topic,
@@ -55,11 +59,11 @@ func (p *KProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 	}()
 
 	// Канал доставки событий (информации об отправленном сообщении)
-	timer := time.NewTicker(1 * time.Second)
+	timer := time.NewTicker(createMessageInterval)
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("Получен сигнал выхода, остановка продьюсера...")
+			logger.Log.Info("Получен сигнал выхода, остановка продьюсера...")
 			wg.Done()
 		case <-timer.C:
 			msg := &Msg{
@@ -87,10 +91,13 @@ func (p *KProducer) Run(ctx context.Context, wg *sync.WaitGroup) {
 
 			// Если возникла ошибка доставки сообщения
 			if m.TopicPartition.Error != nil {
-				fmt.Printf("Ошибка доставки сообщения: %v\n", m.TopicPartition.Error)
+				logger.Log.Error("Ошибка доставки сообщения", slog.Any("error", m.TopicPartition.Error))
 			} else {
-				fmt.Printf("Sent to topic %s [%d] offset %v message: %s\n",
-					*m.TopicPartition.Topic, m.TopicPartition.Partition, m.TopicPartition.Offset, payload)
+				logger.Log.Info("Sent",
+					slog.String("topic", *m.TopicPartition.Topic),
+					slog.Any("partition", m.TopicPartition.Partition),
+					slog.String("offset", m.TopicPartition.Offset.String()),
+					slog.String("message", string(payload)))
 			}
 
 		}
